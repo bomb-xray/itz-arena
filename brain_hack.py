@@ -52,8 +52,8 @@ def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_typ
     import wave
     
     sample_rate = 44100  # کیفیت CD صوتی استاندارد
-    duration_seconds = duration_minutes * 60
-    total_frames = sample_rate * duration_seconds
+    duration_seconds = int(duration_minutes * 60)
+    total_frames = int(sample_rate * duration_seconds)
     
     f_left = carrier
     f_right = carrier
@@ -318,7 +318,7 @@ def main():
     print(f"► Carrier Frequency:  {carrier_freq} Hz")
     print(f"► Sound Technology:   {['Binaural Beats', 'Monaural Beats', 'Isochronic Tones'][entrainment_type-1]}")
     print(f"► Ambient Background: {['None', 'Cosmic Space Rumble', 'Deep Forest Waterfall'][ambient_choice-1]}")
-    print(f"► Duration:           {duration_minutes} Minute(s) ({duration_seconds} seconds)")
+    print(f"► Duration:           {duration_minutes} Minute(s) ({duration_minutes * 60} seconds)")
     print(f"► Output Destination: {file_name}")
     print()
     
