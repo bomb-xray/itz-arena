@@ -48,7 +48,7 @@ def get_choice(min_val, max_val):
         except ValueError:
             print(Colors.RED + "ورودی نامعتبر! لطفاً عدد وارد کنید." + Colors.END)
 
-def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_type, duration_minutes):
+def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_type, duration_minutes, is_mind_melt=False):
     import wave
     
     sample_rate = 44100  # کیفیت CD صوتی استاندارد
@@ -58,7 +58,7 @@ def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_typ
     f_left = carrier
     f_right = carrier
     
-    if entrainment_type == 1:  # Binaural Beats
+    if entrainment_type == 1 and not is_mind_melt:  # Binaural Beats
         f_left = carrier - (beat / 2.0)
         f_right = carrier + (beat / 2.0)
         
@@ -70,7 +70,8 @@ def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_typ
         wav.setsampwidth(2)      # ۱۶ بیت (۲ بایت)
         wav.setframerate(sample_rate)
         
-        brown_noise_state = 0.0
+        brown_left_state = 0.0
+        brown_right_state = 0.0
         
         # مقداردهی به مکانیزم پیشرفت کار
         progress_bar_width = 50
@@ -89,34 +90,66 @@ def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_typ
             
             left_wave = 0.0
             right_wave = 0.0
-            
-            # الف) تولید موج مغزی بر اساس متد صوتی
-            if entrainment_type == 1:  # Binaural Beats
-                left_wave = math.sin(2.0 * math.pi * f_left * t)
-                right_wave = math.sin(2.0 * math.pi * f_right * t)
-            elif entrainment_type == 2:  # Monaural Beats
-                mono_mix = 0.5 * math.sin(2.0 * math.pi * carrier * t) + \
-                           0.5 * math.sin(2.0 * math.pi * (carrier + beat) * t)
-                left_wave = mono_mix
-                right_wave = mono_mix
-            elif entrainment_type == 3:  # Isochronic Tones
-                pulse_envelope = 0.5 + 0.5 * math.sin(2.0 * math.pi * beat * t)
-                tone = math.sin(2.0 * math.pi * carrier * t)
-                left_wave = tone * pulse_envelope
-                right_wave = left_wave
-                
-            # ب) شبیه‌سازی سیگنال‌های آمبینت پس‌زمینه
-            noise_val = 0.0
+            noise_l = 0.0
+            noise_r = 0.0
             rumble_val = 0.0
             
-            if ambient_type == 2:  # Cosmic Space Rumble (غرش بمِ ۳۲ هرتز هوم‌مانند با LFO)
-                rumble_lfo = 0.4 + 0.3 * math.sin(2.0 * math.pi * 0.1 * t)
-                rumble_val = math.sin(2.0 * math.pi * 32.0 * t) * rumble_lfo * 0.20
-            elif ambient_type == 3:  # Deep Forest Waterfall (باران نویز قهوه‌ای عمیق)
-                white = random.uniform(-1.0, 1.0)
-                brown_noise_state = (brown_noise_state + (0.02 * white)) / 1.02
-                noise_val = brown_noise_state * 0.25
+            if is_mind_melt:
+                # =================================================================
+                # کالیبراسیون ویژه هندزفری ساندکور Soundcore R50 (Anker BassUp)
+                # =================================================================
+                # ۱. فرکانس حامل ۱۰۵ هرتز (عبور کامل از فشرده‌سازی بلوتوثی بدون تحلیل رفتن استریو)
+                f_melt_l = 102.75
+                f_melt_r = 107.25
                 
+                # ۲. ضربان دوگوشی پایه
+                l_sine = math.sin(2.0 * math.pi * f_melt_l * t)
+                r_sine = math.sin(2.0 * math.pi * f_melt_r * t)
+                
+                # ۳. پالس‌های ایزوکرونیک هیبریدی ۴.۵ هرتز (تتا) برای تشدید انحلال افکار
+                pulse_envelope = 0.6 + 0.4 * math.sin(2.0 * math.pi * 4.5 * t)
+                left_wave = l_sine * pulse_envelope
+                right_wave = r_sine * pulse_envelope
+                
+                # ۴. ساب‌بیس عمیق فیزیکی ۵۵ هرتز (فرکانس تشدید درایورهای ساندکور) با LFO نفس‌زن کُند (۰.۰۵ هرتز)
+                rumble_lfo = 0.5 + 0.5 * math.sin(2.0 * math.pi * 0.05 * t)
+                rumble_val = math.sin(2.0 * math.pi * 55.0 * t) * rumble_lfo * 0.28
+                
+                # ۵. نویز قهوه‌ای عریض سه بعدی (تولید مستقل نویز برای کانال چپ و راست)
+                # این کار باعث ایجاد یک فضای بسیار گسترده استریو (3D Stereo Widening) روی بلوتوث می‌شود
+                white_l = random.uniform(-1.0, 1.0)
+                white_r = random.uniform(-1.0, 1.0)
+                brown_left_state = (brown_left_state + (0.02 * white_l)) / 1.02
+                brown_right_state = (brown_right_state + (0.02 * white_r)) / 1.02
+                
+                noise_l = brown_left_state * 0.22
+                noise_r = brown_right_state * 0.22
+            else:
+                # الف) تولید موج مغزی استاندارد بر اساس متد صوتی انتخابی
+                if entrainment_type == 1:  # Binaural Beats
+                    left_wave = math.sin(2.0 * math.pi * f_left * t)
+                    right_wave = math.sin(2.0 * math.pi * f_right * t)
+                elif entrainment_type == 2:  # Monaural Beats
+                    mono_mix = 0.5 * math.sin(2.0 * math.pi * carrier * t) + \
+                               0.5 * math.sin(2.0 * math.pi * (carrier + beat) * t)
+                    left_wave = mono_mix
+                    right_wave = mono_mix
+                elif entrainment_type == 3:  # Isochronic Tones
+                    pulse_envelope = 0.5 + 0.5 * math.sin(2.0 * math.pi * beat * t)
+                    tone = math.sin(2.0 * math.pi * carrier * t)
+                    left_wave = tone * pulse_envelope
+                    right_wave = left_wave
+                    
+                # ب) شبیه‌سازی سیگنال‌های آمبینت پس‌زمینه استاندارد (مونو)
+                if ambient_type == 2:  # Cosmic Space Rumble
+                    rumble_lfo = 0.4 + 0.3 * math.sin(2.0 * math.pi * 0.1 * t)
+                    rumble_val = math.sin(2.0 * math.pi * 32.0 * t) * rumble_lfo * 0.20
+                elif ambient_type == 3:  # Deep Forest Waterfall
+                    white = random.uniform(-1.0, 1.0)
+                    brown_left_state = (brown_left_state + (0.02 * white)) / 1.02
+                    noise_l = brown_left_state * 0.25
+                    noise_r = noise_l
+                    
             # ج) اعمال شیب ولوم ملایم ابتدا و انتها (Fade-in / Fade-out)
             fade_volume = 1.0
             fade_duration = 8.0  # ۸ ثانیه آغاز و پایان فاقد کوبش صوتی
@@ -130,8 +163,8 @@ def generate_brain_waves(file_path, carrier, beat, entrainment_type, ambient_typ
                 fade_volume = 0.0
                 
             # د) ادغام نهایی کانال‌های صوتی
-            final_left = (left_wave * main_volume + noise_val + rumble_val) * fade_volume
-            final_right = (right_wave * main_volume + noise_val + rumble_val) * fade_volume
+            final_left = (left_wave * main_volume + noise_l + rumble_val) * fade_volume
+            final_right = (right_wave * main_volume + noise_r + rumble_val) * fade_volume
             
             # فیلتر سخت اورفلو (Hard Limiting)
             final_left = max(-1.0, min(1.0, final_left))
@@ -167,6 +200,13 @@ def main():
     
     # تعریف پکیج حالات مغزی و اثرات درمانی
     states = [
+        {
+            "name": "MIND_MELT",
+            "p_name": "🔥 مختل‌کننده ارشد افکار (Mind Melt Extreme - ویژه هندزفری Soundcore R50)",
+            "beat": 4.5,
+            "carrier": 105.0,
+            "desc": "قوی‌ترین فرمول انحلال پچ‌پچ ذهنی؛ طراحی اختصاصی با تلفیق ضربان دوگوشی، پالس ایزوکرونیک، لرزش ساب‌بیس ۵۵ هرتز هماهنگ با درایور ساندکور و نویز قهوه‌ای تعریض‌شده ۳بعدی عریض."
+        },
         {
             "name": "Delta (Deep Sleep)",
             "p_name": "موج دلتا (خواب عمیق و بازسازی)",
@@ -234,58 +274,72 @@ def main():
     state_choice = get_choice(1, len(states)) - 1
     selected_state = states[state_choice]
     
-    # ۲. انتخاب فرکانس حامل
-    clear_screen()
-    print_banner()
-    print(Colors.CYAN + "=== [ STEP 2: SELECT CARRIER FREQUENCY / انتخاب فرکانس پایه (حامل) ] ===" + Colors.END)
-    print(f"حالت انتخابی شما: {selected_state['p_name']} ({selected_state['beat']} هرتز)\n")
-    print("انتخاب کنید فرکانس پایه در چه فرکانسی نواخته شود (فرکانس‌های سولفژیو اثرات فرکانسی باستانی دارند):")
+    is_mind_melt = (selected_state['name'] == "MIND_MELT")
     
-    print(Colors.YELLOW + f" [1] Default Carrier for this state ({selected_state['carrier']} Hz) - فرکانس پیش‌فرض آرامش‌بخش" + Colors.END)
-    for idx, sol in enumerate(solfeggios):
-        print(Colors.YELLOW + f" [{idx + 2}] {sol['p_name']} ({sol['freq']} Hz)" + Colors.END + f" - {sol['benefit']}")
-    print(Colors.YELLOW + f" [{len(solfeggios) + 2}] Custom Frequency (ورود فرکانس دلخواه دستی)" + Colors.END)
-    
-    carrier_choice = get_choice(1, len(solfeggios) + 2)
-    
-    if carrier_choice == 1:
-        carrier_freq = selected_state['carrier']
-    elif carrier_choice == len(solfeggios) + 2:
-        while True:
-            try:
-                carrier_freq = float(input("\nوارد کردن فرکانس دلخواه به هرتز (مثلاً 100 تا 500 هرتز پیشنهاد می‌شود): "))
-                if 20 <= carrier_freq <= 2000:
-                    break
-                else:
-                    print(Colors.RED + "فرکانس نامعتبر! عددی بین 20 و 2000 وارد کنید." + Colors.END)
-            except ValueError:
-                print(Colors.RED + "ورودی نامعتبر! لطفاً عدد اعشاری یا صحیح معتبر وارد کنید." + Colors.END)
+    if is_mind_melt:
+        carrier_freq = 105.0
+        entrainment_type = 1
+        ambient_choice = 2
+        print(Colors.GREEN + "\n🔒 تمامی تنظیمات صوتی به طور خودکار برای هندزفری Soundcore R50 قفل و بهینه‌سازی شدند!" + Colors.END)
+        print(Colors.GRAY + "   ┌─ فرکانس رزونانس ساب‌بیس: 55 هرتز (منطبق با تکنولوژی BassUp ساندکور)")
+        print("   ├─ فرکانس حامل تتا: 105 هرتز (بهینه شده برای مقابله با فشرده‌سازی بلوتوثی SBC/AAC)")
+        print("   ├─ تکنولوژی انتقال: ترکیب دوگوشی + پالس‌های ایزوکرونیک هماهنگ (Hybrid Dual-Entrainment)")
+        print("   └─ فضا‌سازی صوتی: نویز قهوه‌ای عریض ۳بعدی (تولید کانال چپ و راست کاملاً مستقل و استریو)")
+        print()
+        time.sleep(1)
     else:
-        carrier_freq = solfeggios[carrier_choice - 2]['freq']
+        # ۲. انتخاب فرکانس حامل
+        clear_screen()
+        print_banner()
+        print(Colors.CYAN + "=== [ STEP 2: SELECT CARRIER FREQUENCY / انتخاب فرکانس پایه (حامل) ] ===" + Colors.END)
+        print(f"حالت انتخابی شما: {selected_state['p_name']} ({selected_state['beat']} هرتز)\n")
+        print("انتخاب کنید فرکانس پایه در چه فرکانسی نواخته شود (فرکانس‌های سولفژیو اثرات فرکانسی باستانی دارند):")
         
-    # ۳. انتخاب تکنولوژی صوتی
-    clear_screen()
-    print_banner()
-    print(Colors.CYAN + "=== [ STEP 3: SELECT ENTRAINMENT METHOD / انتخاب تکنولوژی صوتی ] ===" + Colors.END)
-    print(Colors.YELLOW + " [1] Binaural Beats (ضربان دوگوشی) - *نیاز قطعی به هدفون استریو*" + Colors.END)
-    print("     توضیح: فرکانس چپ و راست با هم متفاوت است (مثلاً چپ 200 و راست 210 هرتز). مغز تفاضل این دو (10 هرتز) را درون مغز بازسازی می‌کند.")
-    print(Colors.YELLOW + " [2] Monaural Beats (ضربان تک‌گوشی) - *قابل اجرا با هدفون یا بلندگو*" + Colors.END)
-    print("     توضیح: هر دو فرکانس در کامپیوتر با هم ترکیب و به هر دو گوش فرستاده می‌شوند. نوسان فیزیکی موج صدا در فضا/بلندگو نیز شنیده می‌شود.")
-    print(Colors.YELLOW + " [3] Isochronic Tones (تون‌های ایزوکرونیک) - *قدرتمندترین متد، حتی بدون هدفون*" + Colors.END)
-    print("     توضیح: یک تک فرکانس پایه به سرعت و با ریتم فرکانس هدف قطع و وصل (پالس) می‌شود. اثرگذاری بسیار عمیقی روی کورتکس مغز دارد.")
-    
-    entrainment_type = get_choice(1, 3)
-    
-    # ۴. انتخاب لایه آمبینت پس‌زمینه
-    clear_screen()
-    print_banner()
-    print(Colors.CYAN + "=== [ STEP 4: SELECT BACKGROUND AMBIENT LAYER / انتخاب لایه صوتی پس‌زمینه ] ===" + Colors.END)
-    print("امواج خالص سینوسی به تنهایی ممکن است خسته‌کننده یا آزاردهنده باشند. یک لایه پس‌زمینه برای عمیق‌تر کردن خلسه انتخاب کنید:")
-    print(Colors.YELLOW + " [1] Pure Waves Only (فقط امواج خالص بدون پس‌زمینه)" + Colors.END)
-    print(Colors.YELLOW + " [2] Cosmic Space Rumble (غرش عمیق کیهانی - ساب‌بیس ۳۲ هرتز نوسانی بسیار هپنوتیزمی)" + Colors.END)
-    print(Colors.YELLOW + " [3] Deep Forest Waterfall (باران سنگین و غرش آبشار صوتی - نویز قهوه‌ای بسیار گرم و عمیق)" + Colors.END)
-    
-    ambient_choice = get_choice(1, 3)
+        print(Colors.YELLOW + f" [1] Default Carrier for this state ({selected_state['carrier']} Hz) - فرکانس پیش‌فرض آرامش‌بخش" + Colors.END)
+        for idx, sol in enumerate(solfeggios):
+            print(Colors.YELLOW + f" [{idx + 2}] {sol['p_name']} ({sol['freq']} Hz)" + Colors.END + f" - {sol['benefit']}")
+        print(Colors.YELLOW + f" [{len(solfeggios) + 2}] Custom Frequency (ورود فرکانس دلخواه دستی)" + Colors.END)
+        
+        carrier_choice = get_choice(1, len(solfeggios) + 2)
+        
+        if carrier_choice == 1:
+            carrier_freq = selected_state['carrier']
+        elif carrier_choice == len(solfeggios) + 2:
+            while True:
+                try:
+                    carrier_freq = float(input("\nوارد کردن فرکانس دلخواه به هرتز (مثلاً 100 تا 500 هرتز پیشنهاد می‌شود): "))
+                    if 20 <= carrier_freq <= 2000:
+                        break
+                    else:
+                        print(Colors.RED + "فرکانس نامعتبر! عددی بین 20 و 2000 وارد کنید." + Colors.END)
+                except ValueError:
+                    print(Colors.RED + "ورودی نامعتبر! لطفاً عدد اعشاری یا صحیح معتبر وارد کنید." + Colors.END)
+        else:
+            carrier_freq = solfeggios[carrier_choice - 2]['freq']
+            
+        # ۳. انتخاب تکنولوژی صوتی
+        clear_screen()
+        print_banner()
+        print(Colors.CYAN + "=== [ STEP 3: SELECT ENTRAINMENT METHOD / انتخاب تکنولوژی صوتی ] ===" + Colors.END)
+        print(Colors.YELLOW + " [1] Binaural Beats (ضربان دوگوشی) - *نیاز قطعی به هدفون استریو*" + Colors.END)
+        print("     توضیح: فرکانس چپ و راست با هم متفاوت است (مثلاً چپ 200 و راست 210 هرتز). مغز تفاضل این دو (10 هرتز) را درون مغز بازسازی می‌کند.")
+        print(Colors.YELLOW + " [2] Monaural Beats (ضربان تک‌گوشی) - *قابل اجرا با هدفون یا بلندگو*" + Colors.END)
+        print("     توضیح: هر دو فرکانس در کامپیوتر با هم ترکیب و به هر دو گوش فرستاده می‌شوند. نوسان فیزیکی موج صدا در فضا/بلندگو نیز شنیده می‌شود.")
+        print(Colors.YELLOW + " [3] Isochronic Tones (تون‌های ایزوکرونیک) - *قدرتمندترین متد، حتی بدون هدفون*" + Colors.END)
+        print("     توضیح: یک تک فرکانس پایه به سرعت و با ریتم فرکانس هدف قطع و وصل (پالس) می‌شود. اثرگذاری بسیار عمیقی روی کورتکس مغز دارد.")
+        
+        entrainment_type = get_choice(1, 3)
+        
+        # ۴. انتخاب لایه آمبینت پس‌زمینه
+        clear_screen()
+        print_banner()
+        print(Colors.CYAN + "=== [ STEP 4: SELECT BACKGROUND AMBIENT LAYER / انتخاب لایه صوتی پس‌زمینه ] ===" + Colors.END)
+        print("امواج خالص سینوسی به تنهایی ممکن است خسته‌کننده یا آزاردهنده باشند. یک لایه پس‌زمینه برای عمیق‌تر کردن خلسه انتخاب کنید:")
+        print(Colors.YELLOW + " [1] Pure Waves Only (فقط امواج خالص بدون پس‌زمینه)" + Colors.END)
+        print(Colors.YELLOW + " [2] Cosmic Space Rumble (غرش عمیق کیهانی - ساب‌بیس ۳۲ هرتز نوسانی بسیار هپنوتیزمی)" + Colors.END)
+        print(Colors.YELLOW + " [3] Deep Forest Waterfall (باران سنگین و غرش آبشار صوتی - نویز قهوه‌ای بسیار گرم و عمیق)" + Colors.END)
+        
+        ambient_choice = get_choice(1, 3)
     
     # ۵. انتخاب مدت زمان فایل خروجی
     clear_screen()
@@ -316,25 +370,26 @@ def main():
     print(f"► Target State:       {selected_state['name']} ({selected_state['p_name']})")
     print(f"► Beat Frequency:     {selected_state['beat']} Hz")
     print(f"► Carrier Frequency:  {carrier_freq} Hz")
-    print(f"► Sound Technology:   {['Binaural Beats', 'Monaural Beats', 'Isochronic Tones'][entrainment_type-1]}")
-    print(f"► Ambient Background: {['None', 'Cosmic Space Rumble', 'Deep Forest Waterfall'][ambient_choice-1]}")
+    print(f"► Sound Technology:   {['Binaural Beats', 'Monaural Beats', 'Isochronic Tones'][entrainment_type-1] if not is_mind_melt else 'Hybrid Dual-Entrainment (Soundcore R50 Special)'}")
+    print(f"► Ambient Background: {['None', 'Cosmic Space Rumble', 'Deep Forest Waterfall'][ambient_choice-1] if not is_mind_melt else '3D Expanded Brownian Noise & 55Hz Physical Rumble'}")
     print(f"► Duration:           {duration_minutes} Minute(s) ({duration_minutes * 60} seconds)")
     print(f"► Output Destination: {file_name}")
     print()
     
     start_time = time.time()
     try:
-        generate_brain_waves(file_name, carrier_freq, selected_state['beat'], entrainment_type, ambient_choice, duration_minutes)
+        generate_brain_waves(file_name, carrier_freq, selected_state['beat'], entrainment_type, ambient_choice, duration_minutes, is_mind_melt=is_mind_melt)
         elapsed = time.time() - start_time
         
         print(Colors.GREEN + f"\n🎉 [SUCCESS / عملیات با موفقیت انجام شد!]" + Colors.END)
         print(f"فایل صوتی شما در مدت زمان {elapsed:.2f} ثانیه ساخته شد و در مسیر زیر ذخیره گردید:")
         print(Colors.CYAN + f"👉 {os.path.abspath(file_name)}" + Colors.END)
         
-        print(Colors.YELLOW + "\n⚠️ [دستورالعمل مهم برای استفاده]:" + Colors.END)
-        print(" ۱. برای امواج دوگوشی (Binaural Beats) استفاده از " + Colors.BOLD + "*هدفون استریو*" + Colors.END + " کاملاً الزامی است.")
-        print(" ۲. در یک جای راحت دراز بکشید یا بنشینید، چشمان خود را ببندید و ولوم صدا را روی حالت متوسط (نه خیلی بلند) تنظیم کنید.")
-        print(" ۳. " + Colors.RED + "توجه:" + Colors.END + " به هیچ وجه در حین رانندگی، کار با ماشین‌آلات سنگین یا کارهای نیازمند هوشیاری از این فایل صوتی استفاده نکنید.")
+        print(Colors.YELLOW + "\n⚠️ [دستورالعمل مهم برای استفاده روی Soundcore R50]:" + Colors.END)
+        print(" ۱. برای این متد، حتماً از " + Colors.BOLD + "هدفون بلوتوثی ساندکور R50" + Colors.END + " استریو خود استفاده کنید.")
+        print(" ۲. برای همبستگی فرکانس ۵۵ هرتز لرزشی، حتماً مطمئن شوید که اکولایزر هدفون شما روی حالت پیش‌فرض " + Colors.BOLD + "Signature (یا فعال بودن BassUp)" + Colors.END + " در اپلیکیشن Soundcore باشد.")
+        print(" ۳. در یک جای دنج دراز بکشید، چشمان خود را ببندید و صدا را روی " + Colors.BOLD + "ولوم ۵۰ تا ۶۰ درصد" + Colors.END + " (متوسط) قرار دهید.")
+        print(" ۴. " + Colors.RED + "توجه هشداری:" + Colors.END + " به هیچ وجه در حین رانندگی یا فعالیت‌های نیازمند هوشیاری از این صدا استفاده نکنید.")
         print()
     except Exception as e:
         print(Colors.RED + f"\nخطا در تولید فایل صوتی: {e}" + Colors.END)
